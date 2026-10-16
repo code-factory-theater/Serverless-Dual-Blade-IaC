@@ -1,0 +1,22 @@
+{
+  "name": "serverless-api-cdk",
+  "version": "1.0.0",
+  "description": "Serverless API infrastructure using AWS CDK (TypeScript)",
+  "main": "lib/stack.ts",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy",
+    "diff": "cdk diff",
+    "synth": "cdk synth"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.139.0",
+    "constructs": "^10.3.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
