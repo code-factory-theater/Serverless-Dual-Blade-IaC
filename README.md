@@ -1,39 +1,46 @@
-# ⚔️ Serverless Dual-Blade IaC
+# Serverless Dual-Blade IaC ⚡
 
-> **「宣言的か、型安全か——選ぶのではない、両方を極めるのだ。」**
-> 高可用・低コスト・耐障害性を備えた完全サーバーレスREST API基盤を、**Terraform** と **AWS CDK (TypeScript)** の双方で完全に再現する「二刀流」インフラストラクチャ・リポジトリ。
+> **Terraform と AWS CDK の二刀流で切り拓く、完全サーバーレスAPI基盤リファレンス**
 
----
+本プロジェクトは、Amazon API Gateway (HTTP API)、AWS Lambda (Graviton / ARM64)、Amazon DynamoDB (On-Demand) を組み合わせた、シンプルかつ堅牢な完全サーバーレスWeb API基盤です。
 
-## 🌟 プロジェクト概要
-
-本プロジェクトは、AWSマネージドサービスを極限まで活用したサーバーレスアーキテクチャ（API Gateway HTTP API + Lambda + DynamoDB）を中核に据え、現代IaCの二大巨頭である **Terraform** と **AWS CDK** の両方で同一スペック・同一セキュリティ基準を満たす構成を実現した実践的モノレポです。
-
-### 💡 インフラのハイライト
-- **徹底したサーバーレス設計**: API Gateway HTTP API + AWS Lambda (Graviton2/arm64) + DynamoDB (オンデマンド) による従量課金・ゼロメンテ運用。
-- **堅牢なセキュリティ & 耐障害性**: 最小権限IAMポリシー、保存時暗号化(KMS)、DynamoDB PITR(ポイントインタイムリカバリ)、SQSデッドレターキュー(DLQ)完備。
-- **フルスタック可観測性**: CloudWatch Logs 構造化ログと AWS X-Ray アクティブトレースによるエンドツーエンドの分散トレーシング。
-- **IaC二刀流 (Dual-Blade)**: Terraformによる宣言的ステート管理と、AWS CDKによるTypeScript型安全コンストラクトの両面から同一環境を再現可能。
+インフラ運用の標準化とチームの適性に応じた最適な技術選定を検証するため、同一のアーキテクチャ・非機能要件を **Terraform (HCL)** と **AWS CDK (TypeScript)** の両輪（二刀流）で完全再現しています。
 
 ---
 
-## 📐 システムアーキテクチャ
+## 🌟 インフラのハイライト
+
+- **高コストパフォーマンス & 低レイテンシ**:
+  - API Gateway HTTP API と Graviton (ARM64) 採用 Lambda の黄金コンビ
+- **自動スケーリング & ゼロ管理**:
+  - DynamoDB オンデマンドモード（Pay-per-request）によるバースト対応
+- **エンタープライズ品質のセキュリティ & 信頼性**:
+  - 全レイヤーの暗号化（TLS 1.2+ / DynamoDB 保管時暗号化）
+  - 最小権限の原則 (PoLP) を適用した IAM ポリシー設計
+  - DynamoDB ポイントインタイムリカバリ (PITR) 常時有効
+- **オブザーバビリティ標準装備**:
+  - CloudWatch Logs + AWS X-Ray アクティブトレーシング連携
+
+---
+
+## 📐 システム構成図 (Architecture)
 
 ```mermaid
 graph TD
-    Client["Client / Frontend"]
-    APIGW["Amazon API Gateway (HTTP API)"]
-    Lambda["AWS Lambda (arm64 / Node.js)"]
-    DynamoDB[("Amazon DynamoDB (On-Demand / KMS / PITR)")]
-    DLQ["Amazon SQS (Dead Letter Queue)"]
-    CW["Amazon CloudWatch Logs / AWS X-Ray"]
-
-    Client -->|"HTTPS (TLS 1.2+)"| APIGW
-    APIGW -->|"Payload Format v2.0"| Lambda
-    Lambda -->|"PoLP Access"| DynamoDB
-    Lambda -->|"Failure DLQ"| DLQ
-    APIGW -.->|"Access Logs"| CW
-    Lambda -.->|"Structured Logs & Tracing"| CW
+    Client["Client (HTTPS Request)"] --> APIGW["Amazon API Gateway (HTTP API)"]
+    APIGW --> Lambda["AWS Lambda (ARM64 / Graviton)"]
+    Lambda --> DynamoDB[("Amazon DynamoDB (On-Demand)")]
+    
+    subgraph Observability["Observability & Security"]
+        CW["Amazon CloudWatch Logs / Alarms"]
+        XRay["AWS X-Ray (Tracing)"]
+        IAM["IAM Role (Least Privilege)"]
+    end
+    
+    APIGW -.-> CW
+    Lambda -.-> CW
+    Lambda -.-> XRay
+    IAM -.-> Lambda
 ```
 
 ---
@@ -41,78 +48,70 @@ graph TD
 ## 📂 ディレクトリ構成
 
 ```text
-.
-├── apps/                         # Lambda アプリケーションコード (TypeScript)
+serverless-dual-blade-iac/
+├── apps/                        # Lambda アプリケーションコード
 │   └── src/
-│       └── handler.ts
-├── iac-terraform/                # 【Blade 1】Terraform 実装 (HCL)
+├── terraform/                   # Terraform 実装
 │   ├── envs/
 │   │   ├── dev/
-│   │   └── prd/
-│   ├── modules/
-│   │   ├── api/
-│   │   ├── compute/
-│   │   └── database/
-│   └── main.tf
-└── iac-cdk/                      # 【Blade 2】AWS CDK 実装 (TypeScript)
+│   │   └── prod/
+│   └── modules/
+│       ├── api_gateway/
+│       ├── lambda/
+│       └── dynamodb/
+└── cdk/                         # AWS CDK (TypeScript) 実装
     ├── bin/
     │   └── app.ts
     ├── lib/
-    │   ├── api-stack.ts
-    │   └── constructs/
-    ├── cdk.json
-    └── tsconfig.json
+    │   └── serverless-stack.ts
+    └── cdk.json
 ```
 
 ---
 
-## 🚀 展開手順 (Getting Started)
+## 🚀 展開手順 (Deployment)
 
-### 前提条件
-- AWS CLI (認証情報設定済み)
-- Node.js 18+
-- Terraform 1.5+
-- AWS CDK CLI (`npm install -g aws-cdk`)
+お好みの IaC ツールを選択してデプロイを実行してください。
 
-### 1. アプリケーションのビルド
+### A. Terraform でデプロイする場合
+
 ```bash
-cd apps
-npm install
-npm run build
-cd ..
-```
+cd terraform/envs/dev
 
-### 2. デプロイ方式の選択
-
-#### 🗡️ Terraform で展開する場合
-```bash
-cd iac-terraform/envs/dev
+# 初期化
 terraform init
+
+# 実行計画の確認
 terraform plan
-terraform apply
+
+# 適用
+terraform apply -auto-approve
 ```
 
-#### 🗡️ AWS CDK で展開する場合
+### B. AWS CDK でデプロイする場合
+
 ```bash
-cd iac-cdk
+cd cdk
+
+# 依存関係インストール
 npm install
-cdk synth
-cdk deploy --all
+
+# シンセサイズ & 差分確認
+npx cdk synth
+npx cdk diff
+
+# デプロイ
+npx cdk deploy
 ```
 
 ---
 
-## 🎬 キャスト & クレジット (エンドロール)
+## 🎭 キャスト & クレジット
 
-『AIアプリ工場劇場』の精鋭エージェントたちによる共創プロダクトです。
+本プロジェクトは、AIアプリ工場劇場のプロフェッショナル・エージェントたちの協奏によって完成しました。
 
-- **企画・要件定義**: agent🔵
-  - 二刀流IaCという挑戦的なテーマを掲げ、堅牢なシステム要件を定義。
-- **アーキテクチャ設計**: agent🍇
-  - TerraformとCDKの境界線を見極め、統一感あるモノレポ設計を立案。
-- **インフラ・コード実装**: agent🍊
-  - 圧倒的な開発スピードで二刀流コードとLambdaハンドラーを具現化。
-- **品質保証・検証**: agent🟢
-  - 厳格なPoLPセキュリティ、トレーサビリティ、同等性検証を完遂。
-- **総合プロデュース**: agent🟡
-  - 劇場の全リソースを結集し、本リポジトリをワールドクラスへ昇華。
+- agent🔵 : 要件定義・二刀流IaCアーキテクチャ策定
+- agent🍇 : リポジトリ設計・ブランチ戦略立案
+- agent🍊 : 高速インフラコード実装（Terraform & CDK & Lambda）
+- agent🟢 : 静的解析（tflint / cdk-nag）・セキュリティ品質レビュー
+- agent🟡 : プロジェクト総合プロデュース・リリース統括
