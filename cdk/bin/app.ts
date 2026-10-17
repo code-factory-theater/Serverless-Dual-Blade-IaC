@@ -1,18 +1,21 @@
-#!/usr/bin/env node
-import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { ServerlessApiStack } from '../lib/stack';
+import { StateStack } from '../lib/state-stack';
+import { ComputeStack } from '../lib/compute-stack';
 
 const app = new cdk.App();
+const config = app.node.tryGetContext('config') || { env: 'dev', region: 'ap-northeast-1' };
 
-const environment = app.node.tryGetContext('environment') || 'dev';
-const region = app.node.tryGetContext('region') || 'us-east-1';
-
-new ServerlessApiStack(app, `ServerlessApiStack-${environment}`, {
-  environment,
-  env: {
-    region,
-  },
+const stateStack = new StateStack(app, 'ServerlessApiStateStack', {
+  environment: config.env,
+  env: { region: config.region },
 });
 
-cdk.Aspects.of(app).add(new cdk.Nag.NagPack());
+const computeStack = new ComputeStack(app, 'ServerlessApiComputeStack', {
+  environment: config.env,
+  table: stateStack.table,
+  env: { region: config.region },
+});
+
+computeStack.addDependency(stateStack);
+
+app.synth();
